@@ -1,206 +1,152 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 import json, os, time, hashlib, math
-from typing import List, Dict
+from typing import List
 
-app = FastAPI(
-    title="MiniCoin API",
-    description="A Bitcoin-like blockchain API with coins, blocks, and permanent user addresses.",
-    version="1.0"
+app = FastAPI(title="MiniCoin API", description="Bitcoin-like crypto API in Python", version="1.0.0")
+
+# CORS Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # or specify frontend domain
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 CHAIN_FILE = "blockchain.json"
 USER_FILE = "users.json"
 
-# ------------------ Blockchain Classes ------------------
-
 class Block:
-    def __init__(self, index, prev_hash, timestamp, data):
+    def __init__(self, index, timestamp, transactions, previous_hash):
         self.index = index
-        self.prev_hash = prev_hash
         self.timestamp = timestamp
-        self.data = data
-        self.hash = self.compute_hash()
+        self.transactions = transactions
+        self.previous_hash = previous_hash
+        self.hash = self.calculate_hash()
 
-    def compute_hash(self):
-        block_string = f"{self.index}{self.prev_hash}{self.timestamp}{self.data}"
-        return hashlib.sha256(block_string.encode()).hexdigest()
+    def calculate_hash(self):
+        tx_str = json.dumps(self.transactions, sort_keys=True)
+        raw = f"{self.index}{self.timestamp}{tx_str}{self.previous_hash}"
+        return hashlib.sha256(raw.encode()).hexdigest()
 
     def to_dict(self):
         return {
-            "index": self.index,
-            "prev_hash": self.prev_hash,
-            "timestamp": self.timestamp,
-            "data": self.data,
-            "hash": self.hash
+            'index': self.index,
+            'timestamp': self.timestamp,
+            'transactions': self.transactions,
+            'previous_hash': self.previous_hash,
+            'hash': self.hash
         }
 
-class Blockchain:
-    def __init__(self):
-        self.chain: List[Block] = []
-        self.load_chain()
+def load_json(file):
+    return json.load(open(file)) if os.path.exists(file) else []
 
-    def create_genesis_block(self):
-        genesis_block = Block(0, "0", time.time(), [])
-        self.chain.append(genesis_block)
-        self.save_chain()
+def save_json(file, data):
+    json.dump(data, open(file, 'w'), indent=2)
 
-    def add_block(self, data):
-        prev_block = self.chain[-1]
-        new_block = Block(len(self.chain), prev_block.hash, time.time(), data)
-        self.chain.append(new_block)
-        self.save_chain()
+def get_chain():
+    return load_json(CHAIN_FILE)
 
-    def save_chain(self):
-        with open(CHAIN_FILE, "w") as f:
-            json.dump([b.to_dict() for b in self.chain], f, indent=2)
+def get_users():
+    return load_json(USER_FILE)
 
-    def load_chain(self):
-        if os.path.exists(CHAIN_FILE):
-            try:
-                with open(CHAIN_FILE, "r") as f:
-                    data = json.load(f)
-                    self.chain = [
-                        Block(d["index"], d["prev_hash"], d["timestamp"], d["data"])
-                        for d in data
-                    ]
-            except:
-                os.remove(CHAIN_FILE)
-                self.create_genesis_block()
-        else:
-            self.create_genesis_block()
-
-    def auto_block_if_needed(self):
-        users = load_users()
-        total = sum(user["coins"] for user in users.values())
-        expected_blocks = math.floor(total / 1000)
-        while len(self.chain) - 1 < expected_blocks:
-            self.add_block([])
-
-# ------------------ User Storage ------------------
-
-def load_users():
-    if os.path.exists(USER_FILE):
-        with open(USER_FILE, "r") as f:
-            return json.load(f)
-    return {}
+def save_chain(chain):
+    save_json(CHAIN_FILE, chain)
 
 def save_users(users):
-    with open(USER_FILE, "w") as f:
-        json.dump(users, f, indent=2)
+    save_json(USER_FILE, users)
 
-def get_or_create_user(username):
-    users = load_users()
-    if username not in users:
-        users[username] = {
-            "address": hashlib.sha256(f"{username}{time.time()}".encode()).hexdigest()[:16],
-            "coins": 0
-        }
-        save_users(users)
-    return users[username]
+def find_user(username):
+    return next((u for u in get_users() if u['username'] == username), None)
 
-def resolve_user_by_address(address):
-    users = load_users()
-    for name, data in users.items():
-        if data["address"] == address:
-            return name
-    return None
-
-# ------------------ API Schemas ------------------
-
-class JoinRequest(BaseModel):
-    username: str
-
-class BuyRequest(BaseModel):
-    username: str
-    amount: int
-
-class SendRequest(BaseModel):
-    from_user: str
-    to: str
-    amount: int
-
-# ------------------ API Routes ------------------
-
-bc = Blockchain()
+def create_block():
+    chain = get_chain()
+    users = get_users()
+    total_coins = sum(u['balance'] for u in users)
+    if total_coins >= 1000 * (len(chain)+1):
+        new_block = Block(
+            index=len(chain),
+            timestamp=time.time(),
+            transactions=[{"info": "Auto block for milestone"}],
+            previous_hash=chain[-1]['hash'] if chain else '0'
+        )
+        chain.append(new_block.to_dict())
+        save_chain(chain)
 
 @app.get("/", response_class=HTMLResponse)
-def root():
-    """Custom HTML landing page for API documentation."""
+async def root():
     return """
-    <html>
-    <head><title>MiniCoin API</title></head>
-    <body style="font-family:sans-serif;padding:20px">
-        <h1>💰 MiniCoin API</h1>
-        <p>A Bitcoin-like blockchain API with coins, blocks, and permanent addresses.</p>
-        <h2>🚀 Available Endpoints:</h2>
-        <ul>
-            <li><b>POST /join</b> - Join the network with a username</li>
-            <li><b>GET /wallet/{username}</b> - View user wallet and address</li>
-            <li><b>POST /buy</b> - Buy coins for a user</li>
-            <li><b>POST /send</b> - Send coins from one user to another</li>
-            <li><b>GET /chain</b> - View the full blockchain</li>
-            <li><a href="/docs">Swagger UI Docs</a> | <a href="/redoc">ReDoc</a></li>
-        </ul>
-        <hr/>
-        <p>Made with ❤️ using FastAPI</p>
-    </body>
-    </html>
+    <h1>🚀 MiniCoin API</h1>
+    <ul>
+      <li>POST /join { username }</li>
+      <li>POST /buy { username, amount }</li>
+      <li>POST /send { from_user, to, amount }</li>
+      <li>GET /wallet/{username}</li>
+      <li>GET /chain</li>
+    </ul>
     """
 
 @app.post("/join")
-def join_user(req: JoinRequest):
-    """Join or get user. Returns address and coins."""
-    user = get_or_create_user(req.username)
-    return {"message": "User joined", "user": user}
-
-@app.get("/wallet/{username}")
-def get_wallet(username: str):
-    """View wallet of given user."""
-    users = load_users()
-    if username in users:
-        return users[username]
-    return {"error": "User not found"}
+async def join_user(data: dict):
+    users = get_users()
+    if find_user(data['username']):
+        return {"message": "User already exists"}
+    addr = hashlib.sha256(data['username'].encode()).hexdigest()
+    users.append({"username": data['username'], "address": addr, "balance": 0})
+    save_users(users)
+    return {"message": "User joined", "address": addr}
 
 @app.post("/buy")
-def buy_coins(req: BuyRequest):
-    """Buy coins for a user (simulates earning/mining)."""
-    user = get_or_create_user(req.username)
-    users = load_users()
-    users[req.username]["coins"] += req.amount
-    tx = {"user": req.username, "type": "buy", "amount": req.amount, "time": time.time()}
-    bc.chain[-1].data.append(tx)
+async def buy_coin(data: dict):
+    users = get_users()
+    user = find_user(data['username'])
+    if not user: return {"error": "User not found"}
+    user['balance'] += data['amount']
     save_users(users)
-    bc.auto_block_if_needed()
-    bc.save_chain()
-    return {"message": f"{req.amount} coins bought", "user": users[req.username]}
+    create_block()
+    return {"message": "Coins purchased", "new_balance": user['balance']}
 
 @app.post("/send")
-def send_coins(req: SendRequest):
-    """Send coins from one user/address to another."""
-    users = load_users()
-    sender = get_or_create_user(req.from_user)
+async def send_coin(data: dict):
+    users = get_users()
+    sender = find_user(data['from_user'])
+    if not sender or sender['balance'] < data['amount']:
+        return {"error": "Invalid sender or insufficient funds"}
 
-    if sender["coins"] < req.amount:
-        return {"error": "Insufficient balance"}
+    receiver = next((u for u in users if u['username'] == data['to'] or u['address'] == data['to']), None)
+    if not receiver:
+        addr = hashlib.sha256(data['to'].encode()).hexdigest()
+        receiver = {"username": data['to'], "address": addr, "balance": 0}
+        users.append(receiver)
 
-    receiver_name = req.to if req.to in users else resolve_user_by_address(req.to)
-
-    if not receiver_name:
-        receiver_name = f"user_{req.to[:6]}"
-        users[receiver_name] = {"address": req.to, "coins": 0}
-
-    tx = {"user": req.from_user, "type": "send", "to": receiver_name, "amount": req.amount, "time": time.time()}
-    users[req.from_user]["coins"] -= req.amount
-    users[receiver_name]["coins"] += req.amount
-    bc.chain[-1].data.append(tx)
+    sender['balance'] -= data['amount']
+    receiver['balance'] += data['amount']
     save_users(users)
-    bc.auto_block_if_needed()
-    bc.save_chain()
-    return {"message": f"{req.amount} coins sent to {receiver_name}"}
+
+    chain = get_chain()
+    new_block = Block(
+        index=len(chain),
+        timestamp=time.time(),
+        transactions=[{
+            "from": sender['username'],
+            "to": receiver['username'],
+            "amount": data['amount']
+        }],
+        previous_hash=chain[-1]['hash'] if chain else '0'
+    )
+    chain.append(new_block.to_dict())
+    save_chain(chain)
+    return {"message": "Transaction successful"}
+
+@app.get("/wallet/{username}")
+async def get_wallet(username: str):
+    user = find_user(username)
+    if not user:
+        return {"error": "User not found"}
+    return user
 
 @app.get("/chain")
-def view_blockchain():
-    """Return the full blockchain as list of blocks."""
-    return [block.to_dict() for block in bc.chain]
+async def full_chain():
+    return get_chain()
