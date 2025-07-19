@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MiniCoin</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --md-sys-color-primary: #6750a4;
+      --md-sys-color-on-primary: #ffffff;
+      --md-sys-color-primary-container: #eaddff;
+      --md-sys-color-on-primary-container: #21005d;
+      --md-sys-color-secondary: #625b71;
+      --md-sys-color-on-secondary: #ffffff;
+      --md-sys-color-secondary-container: #e8def8;
+      --md-sys-color-on-secondary-container: #1d192b;
+      --md-sys-color-tertiary: #7d5260;
+      --md-sys-color-on-tertiary: #ffffff;
+      --md-sys-color-tertiary-container: #ffd8e4;
+      --md-sys-color-on-tertiary-container: #31111d;
+      --md-sys-color-error: #ba1a1a;
+      --md-sys-color-on-error: #ffffff;
+      --md-sys-color-error-container: #ffdad6;
+      --md-sys-color-on-error-container: #410002;
+      --md-sys-color-background: #fffbfe;
+      --md-sys-color-on-background: #1c1b1f;
+      --md-sys-color-surface: #fffbfe;
+      --md-sys-color-on-surface: #1c1b1f;
+      --md-sys-color-surface-variant: #e7e0ec;
+      --md-sys-color-on-surface-variant: #49454f;
+      --md-sys-color-outline: #79747e;
+      --md-sys-color-outline-variant: #cab6d6;
+      --md-sys-color-shadow: #000000;
+      --md-sys-color-surface-tint: #6750a4;
+      --md-sys-color-inverse-surface: #313033;
+      --md-sys-color-inverse-on-surface: #f4eff4;
+      --md-sys-color-inverse-primary: #d0bcff;
+      --md-sys-elevation-level0: 0dp;
+      --md-sys-elevation-level1: 1dp;
+      --md-sys-elevation-level2: 3dp;
+      --md-sys-elevation-level3: 6dp;
+      --md-sys-elevation-level4: 8dp;
+      --md-sys-elevation-level5: 12dp;
+    }
+
+    body {
+      font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--md-sys-color-background);
+      color: var(--md-sys-color-on-background);
+      line-height: 1.5;
+    }
+
+    .page {
+      display: none;
+      min-height: 100vh;
+      animation: fadeIn 0.3s cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+
+    .display-large {
+      font-size: 57px;
+      font-weight: 400;
+      line-height: 64px;
+    }
+
+    .display-medium {
+      font-size: 45px;
+      font-weight: 400;
+      line-height: 52px;
+    }
+
+    .headline-large {
+      font-size: 32px;
+      font-weight: 400;
+      line-height: 40px;
+    }
+
+    .headline-medium {
+      font-size: 28px;
+      font-weight: 400;
+      line-height: 36px;
+    }
+
+    .title-large {
+      font-size: 22px;
+      font-weight: 400;
+      line-height: 28px;
+    }
+
+    .title-medium {
+      font-size: 16px;
+      font-weight: 500;
+      line-height: 24px;
+    }
+
+    .body-large {
+      font-size: 16px;
+      font-weight: 400;
+      line-height: 24px;
+    }
+
+    .body-medium {
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 20px;
+    }
+
+    .body-small {
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 16px;
+    }
+
+    .label-large {
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 20px;
+    }
+
+    .elevation-1 {
+      box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.3), 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+    }
+
+    .elevation-2 {
+      box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.3), 0px 2px 6px 2px rgba(0, 0, 0, 0.15);
+    }
+
+    .elevation-3 {
+      box-shadow: 0px 1px 3px 0px rgba(0, 0, 0, 0.3), 0px 4px 8px 3px rgba(0, 0, 0, 0.15);
+    }
+
+    .login-container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .login-card {
+      background-color: var(--md-sys-color-surface);
+      border-radius: 28px;
+      padding: 40px 24px;
+      width: 100%;
+      max-width: 400px;
+      margin-top: 32px;
+    }
+
+    .logo {
+      color: var(--md-sys-color-primary);
+      margin-bottom: 16px;
+    }
+
+    .app-container {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .top-app-bar {
+      background-color: var(--md-sys-color-surface);
+      padding: 16px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .top-app-bar-title {
+      color: var(--md-sys-color-on-surface);
+    }
+
+    .icon-button {
+      width: 48px;
+      height: 48px;
+      border-radius: 24px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--md-sys-color-on-surface);
+      font-size: 24px;
+      transition: background-color 0.2s cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .icon-button:hover {
+      background-color: var(--md-sys-color-on-surface);
+      background-color: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
+    }
+
+    .main-content {
+      flex: 1;
+      padding: 16px;
+      padding-bottom: 100px;
+    }
+
+    .card {
+      background-color: var(--md-sys-color-surface);
+      border-radius: 12px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+
+    .card.filled {
+      background-color: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+    }
+
+    .card-content {
+      padding: 24px;
+    }
+
+    .wallet-card {
+      background-color: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+      margin-bottom: 24px;
+    }
+
+    .balance-section {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .balance-label {
+      color: var(--md-sys-color-on-primary-container);
+      opacity: 0.8;
+      margin-bottom: 8px;
+    }
+
+    .balance-amount {
+      margin-bottom: 4px;
+    }
+
+    .wallet-address {
+      text-align: center;
+      font-family: 'Roboto Mono', monospace;
+      padding: 8px 16px;
+      background-color: color-mix(in srgb, var(--md-sys-color-on-primary-container) 8%, transparent);
+      border-radius: 8px;
+      margin-top: 16px;
+    }
+
+    .filled-button {
+      background-color: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary);
+      border: none;
+      border-radius: 20px;
+      padding: 10px 24px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+      width: 100%;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .filled-button:hover {
+      box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.3), 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+    }
+
+    .filled-button:disabled {
+      background-color: color-mix(in srgb, var(--md-sys-color-on-surface) 12%, transparent);
+      color: color-mix(in srgb, var(--md-sys-color-on-surface) 38%, transparent);
+      cursor: not-allowed;
+    }
+
+    .outlined-button {
+      background: none;
+      color: var(--md-sys-color-primary);
+      border: 1px solid var(--md-sys-color-outline);
+      border-radius: 20px;
+      padding: 10px 24px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .outlined-button:hover {
+      background-color: color-mix(in srgb, var(--md-sys-color-primary) 8%, transparent);
+    }
+
+    .text-field {
+      margin-bottom: 16px;
+    }
+
+    .text-field-label {
+      color: var(--md-sys-color-on-surface-variant);
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .text-field-input {
+      width: 100%;
+      padding: 16px;
+      border: 1px solid var(--md-sys-color-outline);
+      border-radius: 4px;
+      background-color: var(--md-sys-color-surface);
+      color: var(--md-sys-color-on-surface);
+      font-size: 16px;
+      transition: border-color 0.2s cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .text-field-input:focus {
+      outline: none;
+      border-color: var(--md-sys-color-primary);
+      border-width: 2px;
+      padding: 15px;
+    }
+
+    .fab-container {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .fab {
+      flex: 1;
+      background-color: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+      border: none;
+      border-radius: 16px;
+      padding: 24px 16px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .fab:hover {
+      box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.3), 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+      transform: translateY(-1px);
+    }
+
+    .fab-icon {
+      font-size: 24px;
+    }
+
+    .result-card {
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 16px;
+      animation: slideUp 0.3s cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .result-card.success {
+      background-color: color-mix(in srgb, #4caf50 10%, var(--md-sys-color-surface));
+      border-left: 4px solid #4caf50;
+    }
+
+    .result-card.error {
+      background-color: var(--md-sys-color-error-container);
+      color: var(--md-sys-color-on-error-container);
+      border-left: 4px solid var(--md-sys-color-error);
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(16px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: var(--md-sys-color-surface);
+      border-top: 1px solid var(--md-sys-color-outline-variant);
+      padding: 8px 0;
+      display: flex;
+      justify-content: space-around;
+      z-index: 100;
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      padding: 12px 12px 8px;
+      border-radius: 16px;
+      transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+      flex: 1;
+      max-width: 80px;
+      color: var(--md-sys-color-on-surface-variant);
+    }
+
+    .nav-item.active {
+      color: var(--md-sys-color-primary);
+      background-color: var(--md-sys-color-primary-container);
+    }
+
+    .nav-icon {
+      font-size: 24px;
+      margin-bottom: 4px;
+    }
+
+    .nav-label {
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .loading {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .loading::after {
+      content: '';
+      width: 16px;
+      height: 16px;
+      border: 2px solid transparent;
+      border-top: 2px solid currentColor;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .chain-container {
+      background-color: var(--md-sys-color-surface-variant);
+      border-radius: 8px;
+      padding: 16px;
+      max-height: 400px;
+      overflow-y: auto;
+      margin-top: 16px;
+    }
+
+    .chain-data {
+      font-family: 'Roboto Mono', monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      color: var(--md-sys-color-on-surface-variant);
+      line-height: 1.4;
+    }
+
+    @media (min-width: 768px) {
+      .app-container {
+        max-width: 420px;
+        margin: 0 auto;
+        border-left: 1px solid var(--md-sys-color-outline-variant);
+        border-right: 1px solid var(--md-sys-color-outline-variant);
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Login Page -->
+  <div id="loginPage" class="page active">
+    <div class="login-container">
+      <div class="logo display-medium">₿</div>
+      <div class="headline-medium">MiniCoin</div>
+      <div class="login-card card elevation-1">
+        <div class="card-content">
+          <div class="title-large" style="margin-bottom: 8px;">Welcome back</div>
+          <div class="body-medium" style="color: var(--md-sys-color-on-surface-variant); margin-bottom: 24px;">
+            Enter your username to access your wallet
+          </div>
+          <div class="text-field">
+            <label class="text-field-label body-small">Username</label>
+            <input type="text" id="username" class="text-field-input" placeholder="Enter your username" />
+          </div>
+          <button class="filled-button" onclick="login()">
+            <span>Access Wallet</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App -->
+  <div id="appPages" class="page">
+    <div class="app-container">
+      <!-- Home Page -->
+      <div id="homePage" class="page active">
+        <div class="top-app-bar elevation-2">
+          <div class="title-large top-app-bar-title">MiniCoin</div>
+          <button class="icon-button" onclick="logout()" title="Logout">
+            <span>🚪</span>
+          </button>
+        </div>
+        <div class="main-content">
+          <div class="card wallet-card elevation-1">
+            <div class="card-content">
+              <div class="balance-section">
+                <div class="body-medium balance-label">Total Balance</div>
+                <div class="display-medium balance-amount" id="walletBalance">0.00</div>
+                <div class="body-small">MiniCoins</div>
+              </div>
+              <div class="wallet-address body-small" id="walletAddress">
+                Loading address...
+              </div>
+            </div>
+          </div>
+
+          <div class="fab-container">
+            <button class="fab elevation-1" onclick="showPage('buyPage')">
+              <span class="fab-icon">💰</span>
+              <span class="label-large">Buy</span>
+            </button>
+            <button class="fab elevation-1" onclick="showPage('sendPage')">
+              <span class="fab-icon">📤</span>
+              <span class="label-large">Send</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Buy Page -->
+      <div id="buyPage" class="page">
+        <div class="top-app-bar elevation-2">
+          <div class="title-large top-app-bar-title">Buy Coins</div>
+        </div>
+        <div class="main-content">
+          <div class="card elevation-1">
+            <div class="card-content">
+              <div class="title-medium" style="margin-bottom: 16px;">Purchase MiniCoins</div>
+              <div class="text-field">
+                <label class="text-field-label body-small">Amount</label>
+                <input type="number" id="buyAmount" class="text-field-input" placeholder="Enter amount to buy" min="1" />
+              </div>
+              <button class="filled-button" onclick="buyCoins()" id="buyButton">
+                <span>Buy Coins</span>
+              </button>
+              <div id="buyResult"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Send Page -->
+      <div id="sendPage" class="page">
+        <div class="top-app-bar elevation-2">
+          <div class="title-large top-app-bar-title">Send Coins</div>
+        </div>
+        <div class="main-content">
+          <div class="card elevation-1">
+            <div class="card-content">
+              <div class="title-medium" style="margin-bottom: 16px;">Transfer MiniCoins</div>
+              <div class="text-field">
+                <label class="text-field-label body-small">Recipient</label>
+                <input type="text" id="toUser" class="text-field-input" placeholder="Username or address" />
+              </div>
+              <div class="text-field">
+                <label class="text-field-label body-small">Amount</label>
+                <input type="number" id="sendAmount" class="text-field-input" placeholder="Enter amount to send" min="1" />
+              </div>
+              <button class="filled-button" onclick="sendCoins()" id="sendButton">
+                <span>Send Coins</span>
+              </button>
+              <div id="sendResult"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Blockchain Page -->
+      <div id="blockchainPage" class="page">
+        <div class="top-app-bar elevation-2">
+          <div class="title-large top-app-bar-title">Blockchain</div>
+        </div>
+        <div class="main-content">
+          <div class="card elevation-1">
+            <div class="card-content">
+              <div class="title-medium" style="margin-bottom: 16px;">Network Status</div>
+              <button class="filled-button" onclick="getChain()" id="chainButton">
+                <span>Load Blockchain</span>
+              </button>
+              <div class="chain-container">
+                <div class="chain-data" id="chainResult">Click "Load Blockchain" to view the network...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Navigation -->
+      <div class="bottom-nav elevation-2">
+        <div class="nav-item active" onclick="showPage('homePage')">
+          <span class="nav-icon">🏠</span>
+          <span class="nav-label">Home</span>
+        </div>
+        <div class="nav-item" onclick="showPage('buyPage')">
+          <span class="nav-icon">💰</span>
+          <span class="nav-label">Buy</span>
+        </div>
+        <div class="nav-item" onclick="showPage('sendPage')">
+          <span class="nav-icon">📤</span>
+          <span class="nav-label">Send</span>
+        </div>
+        <div class="nav-item" onclick="showPage('blockchainPage')">
+          <span class="nav-icon">⛓️</span>
+          <span class="nav-label">Chain</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const API = "https://minicoinapi.onrender.com";
+let currentUser = null;
+
+function showPage(pageId) {
+  // Hide all pages in app
+  const appPages = document.querySelectorAll('#appPages .page');
+  appPages.forEach(page => page.classList.remove('active'));
+  
+  // Show selected page
+  document.getElementById(pageId).classList.add('active');
+  
+  // Update nav
+  document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+  const navItems = document.querySelectorAll('.nav-item');
+  if (pageId === 'homePage') navItems[0].classList.add('active');
+  else if (pageId === 'buyPage') navItems[1].classList.add('active');
+  else if (pageId === 'sendPage') navItems[2].classList.add('active');
+  else if (pageId === 'blockchainPage') navItems[3].classList.add('active');
+}
+
+function login() {
+  const name = document.getElementById("username").value.trim();
+  if (!name) {
+    alert("Please enter a username");
+    return;
+  }
+  
+  currentUser = name;
+  showApp();
+}
+
+function logout() {
+  if (confirm("Are you sure you want to logout?")) {
+    currentUser = null;
+    document.getElementById("appPages").classList.remove('active');
+    document.getElementById("loginPage").classList.add('active');
+    document.getElementById("username").value = '';
+    showPage('homePage');
+  }
+}
+
+function showApp() {
+  document.getElementById("loginPage").classList.remove('active');
+  document.getElementById("appPages").classList.add('active');
+  joinUser(currentUser);
+  getWallet();
+}
+
+async function joinUser(username) {
+  try {
+    await fetch(`${API}/join`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username })
+    });
+  } catch (err) {
+    console.error("Join error:", err);
+  }
+}
+
+function truncateAddress(address) {
+  if (!address) return "Loading...";
+  if (address.length <= 10) return address;
+  return address.substring(0, 6) + "..." + address.substring(address.length - 4);
+}
+
+async function buyCoins() {
+  const amount = parseInt(document.getElementById("buyAmount").value);
+  if (!amount || amount <= 0) {
+    alert("Please enter a valid amount");
+    return;
+  }
+
+  const button = document.getElementById("buyButton");
+  button.innerHTML = '<span class="loading">Processing</span>';
+  button.disabled = true;
+
+  try {
+    const res = await fetch(`${API}/buy`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: currentUser, amount })
+    });
+    const data = await res.json();
+    
+    document.getElementById("buyResult").innerHTML = `
+      <div class="result-card success">
+        <div class="title-medium" style="margin-bottom: 8px;">✅ Purchase Successful!</div>
+        <div class="body-medium">💰 Amount: ${data.amount} MiniCoins</div>
+        <div class="body-small" style="opacity: 0.8;">🔑 Address: ${truncateAddress(data.address)}</div>
+      </div>`;
+    
+    document.getElementById("buyAmount").value = '';
+    getWallet();
+  } catch (err) {
+    document.getElementById("buyResult").innerHTML = `
+      <div class="result-card error">
+        <div class="title-medium" style="margin-bottom: 8px;">❌ Purchase Failed</div>
+        <div class="body-medium">Please try again</div>
+      </div>`;
+  }
+
+  button.innerHTML = '<span>Buy Coins</span>';
+  button.disabled = false;
+}
+
+async function sendCoins() {
+  const to = document.getElementById("toUser").value.trim();
+  const amount = parseInt(document.getElementById("sendAmount").value);
+  
+  if (!to || !amount || amount <= 0) {
+    alert("Please fill in all fields correctly");
+    return;
+  }
+
+  const button = document.getElementById("sendButton");
+  button.innerHTML = '<span class="loading">Sending</span>';
+  button.disabled = true;
+
+  try {
+    const res = await fetch(`${API}/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ from_user: currentUser, to, amount })
+    });
+    const data = await res.json();
+    
+    document.getElementById("sendResult").innerHTML = `
+      <div class="result-card success">
+        <div class="title-medium" style="margin-bottom: 8px;">🚀 Transfer Successful!</div>
+        <div class="body-medium">📤 To: ${data.to || to}</div>
+        <div class="body-medium">💸 Amount: ${data.amount} MiniCoins</div>
+      </div>`;
+    
+    document.getElementById("toUser").value = '';
+    document.getElementById("sendAmount").value = '';
+    getWallet();
+  } catch (err) {
+    document.getElementById("sendResult").innerHTML = `
+      <div class="result-card error">
+        <div class="title-medium" style="margin-bottom: 8px;">❌ Transfer Failed</div>
+        <div class="body-medium">Please check your balance and try again</div>
+      </div>`;
+  }
+
+  button.innerHTML = '<span>Send Coins</span>';
+  button.disabled = false;
+}
+
+async function getWallet() {
+  try {
+    const res = await fetch(`${API}/wallet/${currentUser}`);
+    const data = await res.json();
+    
+    document.getElementById("walletAddress").innerText = truncateAddress(data.address);
+    document.getElementById("walletBalance").innerText = data.balance;
+  } catch (err) {
+    console.error("Wallet error:", err);
+  }
+}
+
+async function getChain() {
+  const button = document.getElementById("chainButton");
+  button.innerHTML = '<span class="loading">Loading</span>';
+  button.disabled = true;
+
+  try {
+    const res = await fetch(`${API}/chain`);
+    const data = await res.json();
+    document.getElementById("chainResult").innerText = JSON.stringify(data, null, 2);
+  } catch (err) {
+    document.getElementById("chainResult").innerText = "Failed to load blockchain data";
+  }
+
+  button.innerHTML = '<span>Load Blockchain</span>';
+  button.disabled = false;
+}
+</script>
+
+</body>
+</html>
