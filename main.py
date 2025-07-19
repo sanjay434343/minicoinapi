@@ -1,15 +1,14 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
-import json, os, time, hashlib, math
-from typing import List
+import json, os, time, hashlib
 
 app = FastAPI(title="MiniCoin API", description="Bitcoin-like crypto API in Python", version="1.0.0")
 
-# CORS Middleware
+# CORS setup to allow frontend communication
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # or specify frontend domain
+    allow_origins=["*"],  # Use your frontend URL in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -18,6 +17,7 @@ app.add_middleware(
 CHAIN_FILE = "blockchain.json"
 USER_FILE = "users.json"
 
+# Blockchain block class
 class Block:
     def __init__(self, index, timestamp, transactions, previous_hash):
         self.index = index
@@ -40,12 +40,14 @@ class Block:
             'hash': self.hash
         }
 
+# JSON helpers
 def load_json(file):
     return json.load(open(file)) if os.path.exists(file) else []
 
 def save_json(file, data):
     json.dump(data, open(file, 'w'), indent=2)
 
+# Load blockchain & users
 def get_chain():
     return load_json(CHAIN_FILE)
 
@@ -61,30 +63,33 @@ def save_users(users):
 def find_user(username):
     return next((u for u in get_users() if u['username'] == username), None)
 
+# Auto-block creation every 1000 coins
 def create_block():
     chain = get_chain()
     users = get_users()
     total_coins = sum(u['balance'] for u in users)
-    if total_coins >= 1000 * (len(chain)+1):
+    if total_coins >= 1000 * (len(chain) + 1):
         new_block = Block(
             index=len(chain),
             timestamp=time.time(),
-            transactions=[{"info": "Auto block for milestone"}],
+            transactions=[{"info": "Milestone block"}],
             previous_hash=chain[-1]['hash'] if chain else '0'
         )
         chain.append(new_block.to_dict())
         save_chain(chain)
+
+# -------------------- ROUTES ----------------------
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
     return """
     <h1>🚀 MiniCoin API</h1>
     <ul>
-      <li>POST /join { username }</li>
-      <li>POST /buy { username, amount }</li>
-      <li>POST /send { from_user, to, amount }</li>
-      <li>GET /wallet/{username}</li>
-      <li>GET /chain</li>
+      <li><b>POST</b> /join <code>{ "username": "alice" }</code></li>
+      <li><b>POST</b> /buy <code>{ "username": "alice", "amount": 100 }</code></li>
+      <li><b>POST</b> /send <code>{ "from_user": "alice", "to": "bob", "amount": 10 }</code></li>
+      <li><b>GET</b> /wallet/{username}</li>
+      <li><b>GET</b> /chain</li>
     </ul>
     """
 
@@ -102,7 +107,8 @@ async def join_user(data: dict):
 async def buy_coin(data: dict):
     users = get_users()
     user = find_user(data['username'])
-    if not user: return {"error": "User not found"}
+    if not user:
+        return {"error": "User not found"}
     user['balance'] += data['amount']
     save_users(users)
     create_block()
