@@ -1,13 +1,19 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 import json, os, time, hashlib, math
 from typing import List, Dict
 
-app = FastAPI()
+app = FastAPI(
+    title="MiniCoin API",
+    description="A Bitcoin-like blockchain API with coins, blocks, and permanent user addresses.",
+    version="1.0"
+)
+
 CHAIN_FILE = "blockchain.json"
 USER_FILE = "users.json"
 
-# ----------------- Blockchain Classes ------------------
+# ------------------ Blockchain Classes ------------------
 
 class Block:
     def __init__(self, index, prev_hash, timestamp, data):
@@ -52,23 +58,27 @@ class Blockchain:
 
     def load_chain(self):
         if os.path.exists(CHAIN_FILE):
-            with open(CHAIN_FILE, "r") as f:
-                data = json.load(f)
-                self.chain = [
-                    Block(d["index"], d["prev_hash"], d["timestamp"], d["data"])
-                    for d in data
-                ]
+            try:
+                with open(CHAIN_FILE, "r") as f:
+                    data = json.load(f)
+                    self.chain = [
+                        Block(d["index"], d["prev_hash"], d["timestamp"], d["data"])
+                        for d in data
+                    ]
+            except:
+                os.remove(CHAIN_FILE)
+                self.create_genesis_block()
         else:
             self.create_genesis_block()
 
     def auto_block_if_needed(self):
         users = load_users()
-        total_coins = sum(user["balance"] for user in users.values())
-        expected_blocks = math.floor(total_coins / 1000)
+        total = sum(user["coins"] for user in users.values())
+        expected_blocks = math.floor(total / 1000)
         while len(self.chain) - 1 < expected_blocks:
             self.add_block([])
 
-# ----------------- User Handling ------------------
+# ------------------ User Storage ------------------
 
 def load_users():
     if os.path.exists(USER_FILE):
@@ -85,19 +95,19 @@ def get_or_create_user(username):
     if username not in users:
         users[username] = {
             "address": hashlib.sha256(f"{username}{time.time()}".encode()).hexdigest()[:16],
-            "balance": 0
+            "coins": 0
         }
         save_users(users)
     return users[username]
 
-def find_user_by_address(address):
+def resolve_user_by_address(address):
     users = load_users()
     for name, data in users.items():
         if data["address"] == address:
             return name
     return None
 
-# ----------------- API Schemas ------------------
+# ------------------ API Schemas ------------------
 
 class JoinRequest(BaseModel):
     username: str
@@ -111,55 +121,86 @@ class SendRequest(BaseModel):
     to: str
     amount: int
 
-# ----------------- Blockchain Logic ------------------
+# ------------------ API Routes ------------------
 
 bc = Blockchain()
 
+@app.get("/", response_class=HTMLResponse)
+def root():
+    """Custom HTML landing page for API documentation."""
+    return """
+    <html>
+    <head><title>MiniCoin API</title></head>
+    <body style="font-family:sans-serif;padding:20px">
+        <h1>💰 MiniCoin API</h1>
+        <p>A Bitcoin-like blockchain API with coins, blocks, and permanent addresses.</p>
+        <h2>🚀 Available Endpoints:</h2>
+        <ul>
+            <li><b>POST /join</b> - Join the network with a username</li>
+            <li><b>GET /wallet/{username}</b> - View user wallet and address</li>
+            <li><b>POST /buy</b> - Buy coins for a user</li>
+            <li><b>POST /send</b> - Send coins from one user to another</li>
+            <li><b>GET /chain</b> - View the full blockchain</li>
+            <li><a href="/docs">Swagger UI Docs</a> | <a href="/redoc">ReDoc</a></li>
+        </ul>
+        <hr/>
+        <p>Made with ❤️ using FastAPI</p>
+    </body>
+    </html>
+    """
+
 @app.post("/join")
-def join(req: JoinRequest):
+def join_user(req: JoinRequest):
+    """Join or get user. Returns address and coins."""
     user = get_or_create_user(req.username)
     return {"message": "User joined", "user": user}
 
 @app.get("/wallet/{username}")
 def get_wallet(username: str):
+    """View wallet of given user."""
     users = load_users()
-    if username not in users:
-        raise HTTPException(status_code=404, detail="User not found")
-    return users[username]
+    if username in users:
+        return users[username]
+    return {"error": "User not found"}
 
 @app.post("/buy")
-def buy(req: BuyRequest):
-    users = load_users()
+def buy_coins(req: BuyRequest):
+    """Buy coins for a user (simulates earning/mining)."""
     user = get_or_create_user(req.username)
-    users[req.username]["balance"] += req.amount
-    tx = {"from": "mint", "to": req.username, "amount": req.amount, "timestamp": time.time()}
+    users = load_users()
+    users[req.username]["coins"] += req.amount
+    tx = {"user": req.username, "type": "buy", "amount": req.amount, "time": time.time()}
     bc.chain[-1].data.append(tx)
     save_users(users)
     bc.auto_block_if_needed()
-    return {"message": f"{req.amount} coins minted", "user": users[req.username]}
+    bc.save_chain()
+    return {"message": f"{req.amount} coins bought", "user": users[req.username]}
 
 @app.post("/send")
-def send(req: SendRequest):
+def send_coins(req: SendRequest):
+    """Send coins from one user/address to another."""
     users = load_users()
     sender = get_or_create_user(req.from_user)
 
-    if sender["balance"] < req.amount:
-        raise HTTPException(status_code=400, detail="Insufficient balance")
+    if sender["coins"] < req.amount:
+        return {"error": "Insufficient balance"}
 
-    recipient_name = req.to if req.to in users else find_user_by_address(req.to)
-    if not recipient_name:
-        recipient_name = f"user_{req.to[:6]}"
-        users[recipient_name] = {"address": req.to, "balance": 0}
+    receiver_name = req.to if req.to in users else resolve_user_by_address(req.to)
 
-    users[req.from_user]["balance"] -= req.amount
-    users[recipient_name]["balance"] += req.amount
-    tx = {"from": req.from_user, "to": recipient_name, "amount": req.amount, "timestamp": time.time()}
+    if not receiver_name:
+        receiver_name = f"user_{req.to[:6]}"
+        users[receiver_name] = {"address": req.to, "coins": 0}
+
+    tx = {"user": req.from_user, "type": "send", "to": receiver_name, "amount": req.amount, "time": time.time()}
+    users[req.from_user]["coins"] -= req.amount
+    users[receiver_name]["coins"] += req.amount
     bc.chain[-1].data.append(tx)
-
     save_users(users)
     bc.auto_block_if_needed()
-    return {"message": f"{req.amount} coins sent to {recipient_name}"}
+    bc.save_chain()
+    return {"message": f"{req.amount} coins sent to {receiver_name}"}
 
 @app.get("/chain")
-def get_chain():
+def view_blockchain():
+    """Return the full blockchain as list of blocks."""
     return [block.to_dict() for block in bc.chain]
